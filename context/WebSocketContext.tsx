@@ -8,23 +8,32 @@ import React, {
   useRef,
   useState,
 } from "react";
-import type { Portfolio, TradeEvent, SnapshotMessage } from "@/types/trading";
+import type { Portfolio, TradeEvent, SnapshotMessage, PriceUpdateMessage, PriceData, NewsEvent } from "@/types/trading";
 
 const MAX_EVENTS = 50;
+const MAX_NEWS = 20;
 const BASE_RECONNECT_DELAY_MS = 1_000;
 const MAX_RECONNECT_DELAY_MS = 30_000;
 
 interface WebSocketState {
   portfolio: Portfolio | null;
+  prices: Record<string, PriceData>;
+  news: NewsEvent[];
+  selectedSymbol: string;
   events: TradeEvent[];
   connected: boolean;
   lastUpdated: string | null;
 }
 
-interface WebSocketContextValue extends WebSocketState {}
+interface WebSocketContextValue extends WebSocketState {
+  setSelectedSymbol: (symbol: string) => void;
+}
 
 const WebSocketContext = createContext<WebSocketContextValue>({
   portfolio: null,
+  prices: {},
+  news: [],
+  selectedSymbol: "BTC/USD",
   events: [],
   connected: false,
   lastUpdated: null,
@@ -41,6 +50,9 @@ interface Props {
 export function WebSocketProvider({ children }: Props) {
   const [state, setState] = useState<WebSocketState>({
     portfolio: null,
+    prices: {},
+    news: [],
+    selectedSymbol: "BTC/USD",
     events: [],
     connected: false,
     lastUpdated: null,
@@ -69,11 +81,13 @@ export function WebSocketProvider({ children }: Props) {
     ws.onmessage = (event) => {
       if (!isMountedRef.current) return;
 
-      let parsed: SnapshotMessage | TradeEvent;
+      let parsed: SnapshotMessage | TradeEvent | PriceUpdateMessage | NewsEvent;
       try {
         parsed = JSON.parse(event.data as string) as
           | SnapshotMessage
-          | TradeEvent;
+          | TradeEvent
+          | PriceUpdateMessage
+          | NewsEvent;
       } catch {
         return;
       }
@@ -85,6 +99,22 @@ export function WebSocketProvider({ children }: Props) {
           portfolio: msg.portfolio,
           lastUpdated: msg.timestamp,
         }));
+      } else if (parsed.type === "price_update") {
+        const msg = parsed as PriceUpdateMessage;
+        setState((prev) => ({
+          ...prev,
+          prices: msg.prices,
+        }));
+      } else if (parsed.type === "news_event") {
+        const msg = parsed as NewsEvent;
+        setState((prev) => {
+          const exists = prev.news.some((n) => n.id === msg.id);
+          if (exists) return prev;
+          return {
+            ...prev,
+            news: [msg, ...prev.news].slice(0, MAX_NEWS),
+          };
+        });
       } else if (parsed.type === "trade_event") {
         const msg = parsed as TradeEvent;
         setState((prev) => ({
@@ -132,8 +162,12 @@ export function WebSocketProvider({ children }: Props) {
     };
   }, [connect]);
 
+  const setSelectedSymbol = useCallback((symbol: string) => {
+    setState((prev) => ({ ...prev, selectedSymbol: symbol }));
+  }, []);
+
   return (
-    <WebSocketContext.Provider value={state}>
+    <WebSocketContext.Provider value={{ ...state, setSelectedSymbol }}>
       {children}
     </WebSocketContext.Provider>
   );

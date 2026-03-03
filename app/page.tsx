@@ -6,6 +6,9 @@ import PnLChart from "@/components/PnLChart";
 import PositionsTable from "@/components/PositionsTable";
 import TradeFeed from "@/components/TradeFeed";
 import ClosedTradesTable from "@/components/ClosedTradesTable";
+import PriceTicker from "@/components/PriceTicker";
+import NewsFeed from "@/components/NewsFeed";
+import TradingChart from "@/components/TradingChart";
 
 export default function DashboardPage() {
   const { portfolio, events, connected, lastUpdated } = useWebSocket();
@@ -64,6 +67,12 @@ export default function DashboardPage() {
         </div>
       ) : (
         <div className="space-y-4">
+          {/* Price Ticker - Full Width */}
+          <PriceTicker />
+
+          {/* Trading Chart */}
+          <TradingChart />
+
           {/* Row 1: PortfolioCard + PnLChart */}
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
             <div className="lg:col-span-1">
@@ -77,10 +86,17 @@ export default function DashboardPage() {
           {/* Row 2: PositionsTable (full width) */}
           <PositionsTable positions={portfolio.open_positions} />
 
-          {/* Row 3: TradeFeed + ClosedTradesTable */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-            <TradeFeed events={events} />
-            <ClosedTradesTable trades={portfolio.closed_trades} />
+          {/* Row 3: NewsFeed + TradeFeed + ClosedTradesTable */}
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+            <div className="lg:col-span-1">
+              <NewsFeed />
+            </div>
+            <div className="lg:col-span-2">
+              <div className="grid grid-cols-1 gap-4">
+                <TradeFeed events={events} />
+                <ClosedTradesTable trades={portfolio.closed_trades} />
+              </div>
+            </div>
           </div>
         </div>
       )}

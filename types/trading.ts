@@ -61,3 +61,30 @@ export interface SnapshotMessage {
   timestamp: string;
   portfolio: Portfolio;
 }
+
+export interface PriceData {
+  symbol: string;
+  bid: number;
+  ask: number;
+  mark: number;
+  spread: number;
+  timestamp: string;
+}
+
+export interface PriceUpdateMessage {
+  type: "price_update";
+  timestamp: string;
+  prices: Record<string, PriceData>;
+}
+
+export interface NewsEvent {
+  type: "news_event";
+  id: number;
+  urgency: "URGENT" | "IMPORTANT" | "ROUTINE" | "NOISE";
+  sentiment: "BULLISH" | "BEARISH" | "NEUTRAL";
+  summary: string;
+  source: string;
+  content: string;
+  affected_assets: string[];
+  timestamp: string;
+}
