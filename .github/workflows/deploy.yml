@@ -1,0 +1,48 @@
+name: Deploy Frontend
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  deploy:
+    name: Deploy to GCP
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Sync frontend to server
+        env:
+          SSH_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+          HOST: ${{ secrets.SERVER_HOST }}
+          USER: ${{ secrets.SERVER_USER }}
+        run: |
+          echo "$SSH_KEY" > /tmp/deploy_key
+          chmod 600 /tmp/deploy_key
+          rsync -avz --delete \
+            -e "ssh -i /tmp/deploy_key -o StrictHostKeyChecking=no" \
+            --exclude='node_modules/' \
+            --exclude='.next/' \
+            --exclude='.env.local' \
+            . $USER@$HOST:~/trading/frontend/
+
+      - name: Build and restart Next.js
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.SERVER_HOST }}
+          username: ${{ secrets.SERVER_USER }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          script: |
+            set -e
+            cd ~/trading/frontend
+            npm ci --prefer-offline
+            npm run build
+            pkill -f 'next start' || true
+            pkill -f 'next-server' || true
+            sleep 2
+            nohup npx next start -p 3001 > /tmp/next.log 2>&1 &
+            sleep 5
+            curl -sf http://localhost:3001/ > /dev/null && echo "Frontend healthy ✓"
